@@ -254,7 +254,7 @@ namespace _3LABTI
             outputBox.AppendText("║                  РЕЗУЛЬТАТ ДЕКОДИРОВАНИЯ                           ║\n");
             outputBox.AppendText("╚════════════════════════════════════════════════════════════════════╝\n\n");
 
-            outputBox.AppendText($"Код для декодирования: {code:F15}\n");
+            outputBox.AppendText($"Исходный код для декодирования: {code:F15}\n");
             outputBox.AppendText($"Ожидаемая длина: {steps.Count} символов\n\n");
 
             outputBox.AppendText("ПОШАГОВОЕ ДЕКОДИРОВАНИЕ:\n");
@@ -264,8 +264,17 @@ namespace _3LABTI
             {
                 outputBox.AppendText($"Шаг {step.StepNumber}: Декодирован символ '{step.DecodedSymbol}'\n");
                 outputBox.AppendText($"  Цепочка: \"{step.DecodedChain}\"\n");
+                outputBox.AppendText($"  Текущий код: {step.CodeValue:F10}\n");
                 outputBox.AppendText($"  Интервал: [{step.LowBound:F10}, {step.HighBound:F10})\n");
-                outputBox.AppendText($"  Код попадает в интервал: {(code >= step.LowBound && code < step.HighBound ? "ДА" : "НЕТ")}\n\n");
+                outputBox.AppendText($"  Код попадает в интервал: {(step.CodeValue >= step.LowBound && step.CodeValue < step.HighBound ? "✓ ДА" : "✗ НЕТ")}\n");
+
+                // Показываем формулу пересчета (кроме последнего шага)
+                if (step.StepNumber < steps.Count)
+                {
+                    double nextCode = (step.CodeValue - step.LowBound) / (step.HighBound - step.LowBound);
+                    outputBox.AppendText($"  Пересчет кода: ({step.CodeValue:F10} - {step.LowBound:F10}) / ({step.HighBound:F10} - {step.LowBound:F10}) = {nextCode:F10}\n");
+                }
+                outputBox.AppendText("\n");
             }
 
             outputBox.AppendText(new string('═', 70) + "\n");

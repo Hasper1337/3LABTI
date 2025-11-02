@@ -178,7 +178,6 @@ namespace _3LABTI
                 high = newHigh;
             }
 
-            // Финальный код - среднее значение интервала
             double finalCode = (low + high) / 2.0;
 
             return (finalCode, steps);
@@ -194,35 +193,33 @@ namespace _3LABTI
 
             List<DecodingStep> steps = new List<DecodingStep>();
             StringBuilder decoded = new StringBuilder();
-            double low = 0.0;
-            double high = 1.0;
+            double currentCode = code; 
 
             for (int i = 0; i < length; i++)
             {
-                // Находим символ, в чей диапазон попадает код
+
                 char decodedSymbol = '\0';
                 double symbolLow = 0, symbolHigh = 0;
+
 
                 foreach (var kvp in ranges.OrderBy(x => x.Key))
                 {
                     char symbol = kvp.Key;
                     var range = kvp.Value;
 
-                    double currentLow = low + (high - low) * range.low;
-                    double currentHigh = low + (high - low) * range.high;
 
-                    if (code >= currentLow && code < currentHigh)
+                    if (currentCode >= range.low && currentCode < range.high)
                     {
                         decodedSymbol = symbol;
-                        symbolLow = currentLow;
-                        symbolHigh = currentHigh;
+                        symbolLow = range.low;
+                        symbolHigh = range.high;
                         break;
                     }
                 }
 
                 if (decodedSymbol == '\0')
                 {
-                    throw new InvalidOperationException($"Не удалось декодировать символ на шаге {i + 1}");
+                    throw new InvalidOperationException($"Не удалось декодировать символ на шаге {i + 1}. Текущий код: {currentCode:F15}");
                 }
 
                 decoded.Append(decodedSymbol);
@@ -232,19 +229,26 @@ namespace _3LABTI
                     StepNumber = i + 1,
                     DecodedChain = decoded.ToString(),
                     DecodedSymbol = decodedSymbol,
-                    CodeValue = code,
+                    CodeValue = currentCode,
                     LowBound = symbolLow,
                     HighBound = symbolHigh
                 };
 
                 steps.Add(step);
 
-                low = symbolLow;
-                high = symbolHigh;
+
+                if (i < length - 1)
+                {
+                    currentCode = (currentCode - symbolLow) / (symbolHigh - symbolLow);
+                }
             }
 
             return (decoded.ToString(), steps);
         }
+
+        /// <summary>
+        /// Проверка инициализации
+        /// </summary>
         public bool IsInitialized()
         {
             return probabilities != null && probabilities.Count > 0;
