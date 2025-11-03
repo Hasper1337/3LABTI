@@ -10,21 +10,21 @@ namespace _3LABTI
     /// </summary>
     public class ArithmeticCoding
     {
-        private Dictionary<char, double> probabilities;
-        private Dictionary<char, (double low, double high)> ranges;
+        private Dictionary<char, decimal> probabilities;
+        private Dictionary<char, (decimal low, decimal high)> ranges;
 
         public class EncodingStep
         {
             public int StepNumber { get; set; }
             public string CurrentChain { get; set; }
             public char CurrentSymbol { get; set; }
-            public double LowBound { get; set; }
-            public double HighBound { get; set; }
-            public double SymbolProbability { get; set; }
+            public decimal LowBound { get; set; }
+            public decimal HighBound { get; set; }
+            public decimal SymbolProbability { get; set; }
 
             public override string ToString()
             {
-                return $"Шаг {StepNumber}: '{CurrentSymbol}' | Цепочка: \"{CurrentChain}\" | [{LowBound:F10}, {HighBound:F10})";
+                return $"Шаг {StepNumber}: '{CurrentSymbol}' | Цепочка: \"{CurrentChain}\" | [{LowBound}, {HighBound})";
             }
         }
 
@@ -33,30 +33,30 @@ namespace _3LABTI
             public int StepNumber { get; set; }
             public string DecodedChain { get; set; }
             public char DecodedSymbol { get; set; }
-            public double CodeValue { get; set; }
-            public double LowBound { get; set; }
-            public double HighBound { get; set; }
+            public decimal CodeValue { get; set; }
+            public decimal LowBound { get; set; }
+            public decimal HighBound { get; set; }
 
             public override string ToString()
             {
-                return $"Шаг {StepNumber}: '{DecodedSymbol}' | Цепочка: \"{DecodedChain}\" | [{LowBound:F10}, {HighBound:F10})";
+                return $"Шаг {StepNumber}: '{DecodedSymbol}' | Цепочка: \"{DecodedChain}\" | Код: {CodeValue} | [{LowBound}, {HighBound})";
             }
         }
 
         /// <summary>
         /// Получить таблицу вероятностей
         /// </summary>
-        public Dictionary<char, double> GetProbabilities()
+        public Dictionary<char, decimal> GetProbabilities()
         {
-            return new Dictionary<char, double>(probabilities);
+            return new Dictionary<char, decimal>(probabilities);
         }
 
         /// <summary>
         /// Получить таблицу диапазонов
         /// </summary>
-        public Dictionary<char, (double low, double high)> GetRanges()
+        public Dictionary<char, (decimal low, decimal high)> GetRanges()
         {
-            return new Dictionary<char, (double, double)>(ranges);
+            return new Dictionary<char, (decimal, decimal)>(ranges);
         }
 
         /// <summary>
@@ -78,31 +78,31 @@ namespace _3LABTI
             }
 
             // Вычисление вероятностей
-            probabilities = new Dictionary<char, double>();
+            probabilities = new Dictionary<char, decimal>();
             int totalChars = input.Length;
 
-            foreach (var kvp in frequencies.OrderBy(x => x.Key))
+            foreach (var kvp in frequencies)
             {
-                probabilities[kvp.Key] = (double)kvp.Value / totalChars;
+                probabilities[kvp.Key] = (decimal)kvp.Value / totalChars;
             }
 
-            // Построение диапазонов
+            // Построение диапазонов ПО УБЫВАНИЮ вероятностей
             BuildRanges();
         }
 
         /// <summary>
         /// Инициализация с заданными вероятностями
         /// </summary>
-        public void Initialize(Dictionary<char, double> customProbabilities)
+        public void Initialize(Dictionary<char, decimal> customProbabilities)
         {
             if (customProbabilities == null || customProbabilities.Count == 0)
                 throw new ArgumentException("Вероятности не могут быть пустыми!");
 
-            double sum = customProbabilities.Values.Sum();
-            if (Math.Abs(sum - 1.0) > 0.0001)
+            decimal sum = customProbabilities.Values.Sum();
+            if (Math.Abs(sum - 1.0m) > 0.0001m)
             {
                 // Нормализация
-                probabilities = new Dictionary<char, double>();
+                probabilities = new Dictionary<char, decimal>();
                 foreach (var kvp in customProbabilities)
                 {
                     probabilities[kvp.Key] = kvp.Value / sum;
@@ -110,24 +110,25 @@ namespace _3LABTI
             }
             else
             {
-                probabilities = new Dictionary<char, double>(customProbabilities);
+                probabilities = new Dictionary<char, decimal>(customProbabilities);
             }
 
             BuildRanges();
         }
 
         /// <summary>
-        /// Построение диапазонов для каждого символа
+        /// Построение диапазонов для каждого символа ПО УБЫВАНИЮ вероятностей
         /// </summary>
         private void BuildRanges()
         {
-            ranges = new Dictionary<char, (double, double)>();
-            double cumulative = 0.0;
+            ranges = new Dictionary<char, (decimal, decimal)>();
+            decimal cumulative = 0.0m;
 
-            foreach (var kvp in probabilities.OrderBy(x => x.Key))
+            // Сортируем ПО УБЫВАНИЮ вероятностей (от большей к меньшей)
+            foreach (var kvp in probabilities.OrderByDescending(x => x.Value).ThenBy(x => x.Key))
             {
-                double low = cumulative;
-                double high = cumulative + kvp.Value;
+                decimal low = cumulative;
+                decimal high = cumulative + kvp.Value;
                 ranges[kvp.Key] = (low, high);
                 cumulative = high;
             }
@@ -136,14 +137,14 @@ namespace _3LABTI
         /// <summary>
         /// Кодирование строки с отображением всех шагов
         /// </summary>
-        public (double code, List<EncodingStep> steps) Encode(string input)
+        public (decimal code, List<EncodingStep> steps) Encode(string input)
         {
             if (string.IsNullOrEmpty(input))
                 throw new ArgumentException("Входная строка не может быть пустой!");
 
             List<EncodingStep> steps = new List<EncodingStep>();
-            double low = 0.0;
-            double high = 1.0;
+            decimal low = 0.0m;
+            decimal high = 1.0m;
             StringBuilder currentChain = new StringBuilder();
 
             for (int i = 0; i < input.Length; i++)
@@ -157,10 +158,10 @@ namespace _3LABTI
                 }
 
                 var symbolRange = ranges[symbol];
-                double range = high - low;
+                decimal range = high - low;
 
-                double newLow = low + range * symbolRange.low;
-                double newHigh = low + range * symbolRange.high;
+                decimal newLow = low + range * symbolRange.low;
+                decimal newHigh = low + range * symbolRange.high;
 
                 var step = new EncodingStep
                 {
@@ -178,7 +179,8 @@ namespace _3LABTI
                 high = newHigh;
             }
 
-            double finalCode = (low + high) / 2.0;
+            // Финальный код - среднее значение интервала
+            decimal finalCode = (low + high) / 2.0m;
 
             return (finalCode, steps);
         }
@@ -186,28 +188,33 @@ namespace _3LABTI
         /// <summary>
         /// Декодирование с отображением всех шагов
         /// </summary>
-        public (string decoded, List<DecodingStep> steps) Decode(double code, int length)
+        public (string decoded, List<DecodingStep> steps) Decode(decimal code, int length)
         {
             if (length <= 0)
                 throw new ArgumentException("Длина должна быть больше нуля!");
 
+            if (code < 0 || code >= 1)
+                throw new ArgumentException("Код должен быть в диапазоне [0, 1)!");
+
             List<DecodingStep> steps = new List<DecodingStep>();
             StringBuilder decoded = new StringBuilder();
-            double currentCode = code; 
+            decimal currentCode = code; // Текущее значение кода (будет изменяться!)
 
             for (int i = 0; i < length; i++)
             {
-
+                // На каждом шаге работаем с полным интервалом [0.0, 1.0)
+                // так как код нормализован
                 char decodedSymbol = '\0';
-                double symbolLow = 0, symbolHigh = 0;
+                decimal symbolLow = 0, symbolHigh = 0;
 
-
-                foreach (var kvp in ranges.OrderBy(x => x.Key))
+                // Ищем символ, в чей диапазон попадает НОРМАЛИЗОВАННЫЙ код
+                foreach (var kvp in ranges)
                 {
                     char symbol = kvp.Key;
                     var range = kvp.Value;
 
-
+                    // Используем диапазоны напрямую из таблицы ranges
+                    // так как currentCode уже нормализован к [0, 1)
                     if (currentCode >= range.low && currentCode < range.high)
                     {
                         decodedSymbol = symbol;
@@ -219,7 +226,15 @@ namespace _3LABTI
 
                 if (decodedSymbol == '\0')
                 {
-                    throw new InvalidOperationException($"Не удалось декодировать символ на шаге {i + 1}. Текущий код: {currentCode:F15}");
+                    // Подробная диагностика ошибки
+                    string errorMsg = $"Не удалось декодировать символ на шаге {i + 1}.\n";
+                    errorMsg += $"Текущий код: {currentCode}\n";
+                    errorMsg += $"Доступные диапазоны:\n";
+                    foreach (var kvp in ranges.OrderBy(x => x.Value.low))
+                    {
+                        errorMsg += $"  '{kvp.Key}': [{kvp.Value.low}, {kvp.Value.high})\n";
+                    }
+                    throw new InvalidOperationException(errorMsg);
                 }
 
                 decoded.Append(decodedSymbol);
@@ -229,15 +244,16 @@ namespace _3LABTI
                     StepNumber = i + 1,
                     DecodedChain = decoded.ToString(),
                     DecodedSymbol = decodedSymbol,
-                    CodeValue = currentCode,
+                    CodeValue = currentCode,  // Текущее нормализованное значение кода
                     LowBound = symbolLow,
                     HighBound = symbolHigh
                 };
 
                 steps.Add(step);
 
-
-                if (i < length - 1)
+                // ⭐ КЛЮЧЕВАЯ ФОРМУЛА: Нормализуем код для следующего шага
+                // code = (code - RangeLow) / (RangeHigh - RangeLow)
+                if (i < length - 1) // Не пересчитываем на последнем шаге
                 {
                     currentCode = (currentCode - symbolLow) / (symbolHigh - symbolLow);
                 }

@@ -9,7 +9,7 @@ namespace _3LABTI
     public partial class Form1 : Form
     {
         private ArithmeticCoding arithmeticCoding;
-        private double encodedValue;
+        private decimal encodedValue;
         private int messageLength;
 
         public Form1()
@@ -47,6 +47,9 @@ namespace _3LABTI
             // Настройка RichTextBox
             outputBox.ReadOnly = true;
             outputBox.Font = new Font("Consolas", 9);
+
+            // Разрешаем редактирование поля кода
+            encodedCodeBox.ReadOnly = false;
         }
 
         private void codingBtn_Click(object sender, EventArgs e)
@@ -82,7 +85,8 @@ namespace _3LABTI
 
                 // Активация кнопки декодирования
                 decodingBtn.Enabled = true;
-                encodedCodeBox.Text = code.ToString("F15");
+                encodedCodeBox.Text = code.ToString();
+                lengthBox.Text = input.Length.ToString();
 
                 MessageBox.Show("Кодирование выполнено успешно!", "Успех",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -98,10 +102,18 @@ namespace _3LABTI
         {
             try
             {
-                if (!double.TryParse(encodedCodeBox.Text, out double code))
+                // Проверка инициализации
+                if (!arithmeticCoding.IsInitialized())
                 {
-                    MessageBox.Show("Некорректный код для декодирования!", "Ошибка",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Сначала выполните кодирование для построения таблицы вероятностей!",
+                        "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!decimal.TryParse(encodedCodeBox.Text, out decimal code))
+                {
+                    MessageBox.Show("Некорректный код для декодирования! Введите число в формате 0.123456",
+                        "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -125,7 +137,7 @@ namespace _3LABTI
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка при декодировании: {ex.Message}", "Ошибка",
+                MessageBox.Show($"Ошибка при декодировании:\n\n{ex.Message}", "Ошибка",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -141,17 +153,18 @@ namespace _3LABTI
             probabilityGrid.Columns.Add("Percentage", "Процент");
             probabilityGrid.Columns.Add("Range", "Диапазон [low, high)");
 
-            foreach (var kvp in probabilities.OrderBy(x => x.Key))
+            // Сортируем ПО УБЫВАНИЮ вероятностей (как в таблице ranges)
+            foreach (var kvp in probabilities.OrderByDescending(x => x.Value).ThenBy(x => x.Key))
             {
                 char symbol = kvp.Key;
-                double prob = kvp.Value;
+                decimal prob = kvp.Value;
                 var range = ranges[symbol];
 
                 probabilityGrid.Rows.Add(
                     symbol.ToString(),
-                    prob.ToString("F6"),
-                    (prob * 100).ToString("F2") + "%",
-                    $"[{range.low:F6}, {range.high:F6})"
+                    prob.ToString(),
+                    (prob * 100).ToString() + "%",
+                    $"[{range.low}, {range.high})"
                 );
             }
         }
@@ -168,14 +181,13 @@ namespace _3LABTI
 
             foreach (var step in steps)
             {
-                double interval = step.HighBound - step.LowBound;
                 encodingStepsGrid.Rows.Add(
                     step.StepNumber,
                     step.CurrentSymbol,
                     step.CurrentChain,
-                    step.LowBound.ToString("F10"),
-                    step.HighBound.ToString("F10"),
-                    $"[{step.LowBound:F10}, {step.HighBound:F10})"
+                    step.LowBound.ToString(),
+                    step.HighBound.ToString(),
+                    $"[{step.LowBound}, {step.HighBound})"
                 );
             }
 
@@ -202,9 +214,9 @@ namespace _3LABTI
                     step.StepNumber,
                     step.DecodedSymbol,
                     step.DecodedChain,
-                    step.CodeValue.ToString("F10"),
-                    step.LowBound.ToString("F10"),
-                    step.HighBound.ToString("F10")
+                    step.CodeValue.ToString(),
+                    step.LowBound.ToString(),
+                    step.HighBound.ToString()
                 );
             }
 
@@ -215,90 +227,52 @@ namespace _3LABTI
             }
         }
 
-        private void DisplayEncodingResult(string input, double code, List<ArithmeticCoding.EncodingStep> steps)
+        private void DisplayEncodingResult(string input, decimal code, List<ArithmeticCoding.EncodingStep> steps)
         {
             outputBox.Clear();
-            outputBox.AppendText("╔════════════════════════════════════════════════════════════════════╗\n");
-            outputBox.AppendText("║                  РЕЗУЛЬТАТ КОДИРОВАНИЯ                             ║\n");
-            outputBox.AppendText("╚════════════════════════════════════════════════════════════════════╝\n\n");
-
             outputBox.AppendText($"Исходное сообщение: \"{input}\"\n");
             outputBox.AppendText($"Длина сообщения: {input.Length} символов\n\n");
 
             outputBox.AppendText("ПОШАГОВОЕ КОДИРОВАНИЕ:\n");
-            outputBox.AppendText(new string('─', 70) + "\n");
 
             foreach (var step in steps)
             {
                 outputBox.AppendText($"Шаг {step.StepNumber}: Символ '{step.CurrentSymbol}'\n");
                 outputBox.AppendText($"  Цепочка: \"{step.CurrentChain}\"\n");
-                outputBox.AppendText($"  Интервал: [{step.LowBound:F10}, {step.HighBound:F10})\n");
-                outputBox.AppendText($"  Длина интервала: {(step.HighBound - step.LowBound):E10}\n\n");
+                outputBox.AppendText($"  Интервал: [{step.LowBound}, {step.HighBound})\n");
+                outputBox.AppendText($"  Длина интервала: {step.HighBound - step.LowBound}\n\n");
             }
 
             var lastStep = steps[steps.Count - 1];
-            outputBox.AppendText(new string('═', 70) + "\n");
-            outputBox.AppendText($"ФИНАЛЬНЫЙ ИНТЕРВАЛ: [{lastStep.LowBound:F15}, {lastStep.HighBound:F15})\n");
-            outputBox.AppendText($"ЗАКОДИРОВАННОЕ ЗНАЧЕНИЕ: {code:F15}\n");
-            outputBox.AppendText(new string('═', 70) + "\n\n");
-
-            // Автозаполнение полей для декодирования
-            encodedCodeBox.Text = code.ToString("F15");
-            lengthBox.Text = input.Length.ToString();
+            outputBox.AppendText($"ФИНАЛЬНЫЙ ИНТЕРВАЛ: [{lastStep.LowBound}, {lastStep.HighBound})\n");
+            outputBox.AppendText($"ЗАКОДИРОВАННОЕ ЗНАЧЕНИЕ: {code}\n");
+            outputBox.AppendText(new string('═', 70));
         }
 
-        private void DisplayDecodingResult(string decoded, double code, List<ArithmeticCoding.DecodingStep> steps)
+        private void DisplayDecodingResult(string decoded, decimal code, List<ArithmeticCoding.DecodingStep> steps)
         {
-            outputBox.AppendText("\n\n");
-            outputBox.AppendText("╔════════════════════════════════════════════════════════════════════╗\n");
-            outputBox.AppendText("║                  РЕЗУЛЬТАТ ДЕКОДИРОВАНИЯ                           ║\n");
-            outputBox.AppendText("╚════════════════════════════════════════════════════════════════════╝\n\n");
-
-            outputBox.AppendText($"Исходный код для декодирования: {code:F15}\n");
+            outputBox.AppendText($"\nКод для декодирования: {code}\n");
             outputBox.AppendText($"Ожидаемая длина: {steps.Count} символов\n\n");
 
             outputBox.AppendText("ПОШАГОВОЕ ДЕКОДИРОВАНИЕ:\n");
-            outputBox.AppendText(new string('─', 70) + "\n");
 
             foreach (var step in steps)
             {
                 outputBox.AppendText($"Шаг {step.StepNumber}: Декодирован символ '{step.DecodedSymbol}'\n");
                 outputBox.AppendText($"  Цепочка: \"{step.DecodedChain}\"\n");
-                outputBox.AppendText($"  Текущий код: {step.CodeValue:F10}\n");
-                outputBox.AppendText($"  Интервал: [{step.LowBound:F10}, {step.HighBound:F10})\n");
-                outputBox.AppendText($"  Код попадает в интервал: {(step.CodeValue >= step.LowBound && step.CodeValue < step.HighBound ? "✓ ДА" : "✗ НЕТ")}\n");
+                outputBox.AppendText($"  Текущий код: {step.CodeValue}\n");
+                outputBox.AppendText($"  Интервал: [{step.LowBound}, {step.HighBound})\n");
+                outputBox.AppendText($"  Код попадает в интервал: {(step.CodeValue >= step.LowBound && step.CodeValue < step.HighBound ? "ДА" : "НЕТ")}\n");
 
                 // Показываем формулу пересчета (кроме последнего шага)
                 if (step.StepNumber < steps.Count)
                 {
-                    double nextCode = (step.CodeValue - step.LowBound) / (step.HighBound - step.LowBound);
-                    outputBox.AppendText($"  Пересчет кода: ({step.CodeValue:F10} - {step.LowBound:F10}) / ({step.HighBound:F10} - {step.LowBound:F10}) = {nextCode:F10}\n");
+                    decimal nextCode = (step.CodeValue - step.LowBound) / (step.HighBound - step.LowBound);
+                    outputBox.AppendText($"  Пересчет кода: ({step.CodeValue} - {step.LowBound}) / ({step.HighBound} - {step.LowBound}) = {nextCode}\n");
                 }
                 outputBox.AppendText("\n");
             }
-
-            outputBox.AppendText(new string('═', 70) + "\n");
             outputBox.AppendText($"ДЕКОДИРОВАННОЕ СООБЩЕНИЕ: \"{decoded}\"\n");
-            outputBox.AppendText(new string('═', 70) + "\n");
-
-            // Проверка совпадения
-            string original = msgForCoding.Text;
-            if (original == decoded)
-            {
-                outputBox.AppendText("\n✓ УСПЕХ: Декодированное сообщение совпадает с исходным!\n");
-                outputBox.SelectionStart = outputBox.Text.Length - 60;
-                outputBox.SelectionLength = 60;
-                outputBox.SelectionColor = Color.Green;
-                outputBox.SelectionFont = new Font(outputBox.Font, FontStyle.Bold);
-            }
-            else
-            {
-                outputBox.AppendText("\n✗ ОШИБКА: Декодированное сообщение не совпадает с исходным!\n");
-                outputBox.SelectionStart = outputBox.Text.Length - 70;
-                outputBox.SelectionLength = 70;
-                outputBox.SelectionColor = Color.Red;
-                outputBox.SelectionFont = new Font(outputBox.Font, FontStyle.Bold);
-            }
         }
 
         private void clearBtn_Click(object sender, EventArgs e)
@@ -316,15 +290,10 @@ namespace _3LABTI
 
         private void msgForCoding_TextChanged(object sender, EventArgs e)
         {
-            // Можно добавить валидацию или другую логику
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Пример по умолчанию
-            msgForCoding.Text = "ABACABAD";
-            lengthBox.Text = "8";
-            decodingBtn.Enabled = false;
         }
     }
 }
